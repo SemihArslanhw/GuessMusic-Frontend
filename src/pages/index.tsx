@@ -1,7 +1,26 @@
-import MissionCard from "@/components/missions/missioncard";
+// Home.tsx
+
+import React, { useState, useEffect } from 'react';
 import Login from "@/components/auth/login/login";
+import MissionCard from "@/components/missions/missioncard";
+import MultiplayerWaitingRoom from "@/components/multiplayer/multiplayerwaitingroom";
+
+interface Player {
+  name: string;
+}
 
 export default function Home() {
+  const [player, setPlayer] = useState<Player>({ name: "" });
+  const [waitingForPlayer, setWaitingForPlayer] = useState<boolean>(false);
+
+
+  // Function to handle adding a player
+  const handlePlayerJoin = (playerInfo: Player) => {
+    setPlayer(playerInfo);
+    setWaitingForPlayer(false);
+  };
+
+
   return (
     <div className="max-w-screen-2xl mx-auto h-full">
       <Login />
@@ -10,25 +29,30 @@ export default function Home() {
         {/* Your header content goes here */}
         <h1>Music Guess App</h1>
       </header>
-
       {/* Body */}
       <div className="flex mt-4 h-[90vh]">
         {/* Left Side */}
         <aside className="w-1/4 bg-gray-800 p-4 rounded-l-lg">
           {/* Your left side content goes here */}
           <h2>Left Side</h2>
+          
         </aside>
 
         {/* Main Content */}
         <main className="w-1/2 bg-gray-700 p-4">
           {/* Your main content goes here */}
           <h2>Main Content</h2>
+          {waitingForPlayer ? (
+            <p>Waiting for another player to join...</p>
+          ) : (
+            <MultiplayerWaitingRoom player={player} handlePlayerJoin={handlePlayerJoin} />
+          )}
         </main>
 
         {/* Right Side */}
         <aside className="w-1/4 bg-gray-800 p-4 rounded-r-lg flex flex-col gap-3">
           {/* Your right side content goes here */}
-          <h2>Missons</h2>
+          <h2>Missions</h2>
           <MissionCard missions={[
             {
               id: 1,
