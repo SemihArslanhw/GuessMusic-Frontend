@@ -10,30 +10,20 @@ interface Props {
   handlePlayerJoin: (playerInfo: Player) => void;
 }
 
-const MultiplayerWaitingRoom: React.FC<Props> = ({ player , handlePlayerJoin }) => {
+const MultiplayerWaitingRoom: React.FC<Props> = ({ player , handlePlayerJoin, socket }) => {
   const [searching, setSearching] = useState(false);
   const [searchingMessage, setSearchingMessage] = useState("");
   const [playerInput, setPlayerInput] = useState("");
   const [roomList, setRoomList] = useState([] as string[]);
+  const [roomId, setRoomId] = useState("");
+  const [currentRoom, setCurrentRoom] = useState({} as any);
   const imageList = [
     "/lists/2010's-pop.jpeg",
     "/lists/theweeknd.jpeg",
     "/lists/turkey-20.png",
   ];
 
-  const socket = useRef<Socket | null>(null);
-
-  useEffect(() => {
-    socket.current = io("ws://127.0.0.1:3003", {
-      rejectUnauthorized: false,
-      reconnection: false,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      randomizationFactor: 0.5,
-      protocols: ["websocket"],
-      });
-    
+  useEffect(() => {  
     socket.current.on("connect", () => {
       console.log("Connected to the server!");
     });
@@ -47,10 +37,6 @@ const MultiplayerWaitingRoom: React.FC<Props> = ({ player , handlePlayerJoin }) 
       setRoomList(data.rooms);
     });
 
-    socket.current.on("game start", (data) => {
-      console.log("Game start", data);
-    });
-
     socket.current.on("connect_error", (err) => {
       // Log the reason of the error
       console.log("Connection error:", err.message, err.cause);
@@ -59,6 +45,11 @@ const MultiplayerWaitingRoom: React.FC<Props> = ({ player , handlePlayerJoin }) 
     socket.current.on("error", (error: Error) => {
       // Log WebSocket connection error
       console.error("WebSocket connection error:", error);
+    });
+
+    socket.current.on("room info", (data) => {
+      console.log("Room info", data);
+      setCurrentRoom(data?.room);
     });
 
     socket.current.on("join error", (error: Error) => {
@@ -74,9 +65,10 @@ const MultiplayerWaitingRoom: React.FC<Props> = ({ player , handlePlayerJoin }) 
         socket.current = null;
       }
     };
-  }, []);
+  }, [socket]);
 
   const handleStartSearch = (roomId) => {
+    setRoomId(roomId);
     socket.current?.emit("joinRoom", { roomId: roomId });
 
     if (player && player.name.trim() !== "") {
@@ -97,21 +89,42 @@ const MultiplayerWaitingRoom: React.FC<Props> = ({ player , handlePlayerJoin }) 
   };
 
   const handleStopSearch = () => {
+    socket.current?.emit("leaveRoom", { roomId: roomId } );
     setSearching(false);
     setSearchingMessage("");
+    setCurrentRoom({});
     // Here you would trigger the logic to stop searching for a game, 
     // such as sending a request to the server to cancel the search.
   }
 
   return (
     <div className={`p-4 w-full multiplayer-waiting-room ${searching ? 'fade-out' : ''}`}>
-      <h2>Multiplayer Waiting Room</h2>
       {player.name !=="" ? (
         <div>
           <p>Player: {player.name}</p>
+          
+          {currentRoom._id && 
+          <ul>
+            
+            <li>Room ID: {currentRoom?._id}</li>
+            <li>Room Name: {currentRoom?.name}</li>
+            <li><img src={"http://localhost:3003/"+currentRoom?.logo} alt="Room Logo" className="w-20 h-20" /></li>
+            <li>Player Count: {currentRoom?.visitors?.length}</li>
+            <li>Game Status: {currentRoom?.isGameStarted}</li>
+            <li>Players: 
+              <ul className='gap-3 flex flex-col'>
+                {currentRoom?.visitors?.map(player => (
+                  <li key={player._id} className='bg-gray-900 rounded-lg p-3'>{player.name}</li>
+                ))}
+              </ul>
+              </li>
+            
+          </ul>
+          }
           {searching ?
            // Looks like league of legends game search
            <div className="flex flex-col gap-2">
+            <h2>Multiplayer Waiting Room</h2>
              <div className="loader"></div>
              <button className="bg-red-500 text-white p-2 rounded-md" onClick={handleStopSearch}>Stop Searching</button>
             </div>
@@ -136,7 +149,9 @@ const MultiplayerWaitingRoom: React.FC<Props> = ({ player , handlePlayerJoin }) 
           <button className="bg-blue-500 text-white p-2 rounded-md" onClick={handleJoin}>Start</button> 
         </div>
       )}
-      {searching && <p>{searchingMessage}</p>}
+      {searching && <p>{
+      currentRoom?.isGameStarted ? "Game is starting..." : searchingMessage
+      }</p>}
     </div>
   );
 };
